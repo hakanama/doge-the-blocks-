@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dodge the Blocks! With Harder Bosses and Warnings</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #87CEEB, #6A5ACD); /* Sky blue to Slate blue gradient */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Press Start 2P', cursive;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-container {
+            position: relative;
+            background-color: #333; /* Dark background for contrast */
+            border: 8px solid #FFD700; /* Gold border */
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            max-width: 95vw; /* Increased max width for responsiveness */
+            max-height: 95vh; /* Increased max height for responsiveness */
+        }
+
+        canvas {
+            background-color: #1a1a2e; /* Darker blue/purple for game area */
+            display: block;
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+            touch-action: none; /* Prevent default browser touch actions */
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px 0;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .game-title {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #FFD700; /* Gold title */
+            animation: pulse 2s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 5px solid #FF4500; /* OrangeRed border */
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            font-size: 1.5em;
+            z-index: 100;
+            box-shadow: 0 0 25px rgba(255, 69, 0, 0.8);
+            display: none; /* Hidden by default */
+        }
+
+        .message-box h2 {
+            margin-top: 0;
+            color: #FFD700;
+            font-size: 1.8em;
+        }
+
+        .message-box p {
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .message-box button {
+            background-color: #4CAF50; /* Green button */
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .message-box button:hover {
+            background-color: #45a049;
+            transform: translateY(-3px);
+        }
+
+        .controls-info {
+            font-size: 0.8em;
+            margin-top: 15px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-title {
+                font-size: 1.8em;
+            }
+            .game-info {
+                font-size: 1em;
+            }
+            .message-box {
+                font-size: 1.2em;
+                padding: 20px;
+            }
+            .message-box button {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+            .controls-info {
+                font-size: 0.7em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-title {
+                font-size: 1.5em;
+            }
+            .game-container {
+                padding: 10px;
+            }
+            .game-info {
+                font-size: 0.9em;
+            }
+            .message-box {
+                font-size: 1em;
+                padding: 15px;
+            }
+            .message-box button {
+                padding: 8px 15px;
+                font-size: 0.8em;
+            }
+            .controls-info {
+                font-size: 0.6em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="game-title">Dodge the Blocks!</h1>
+        <div class="game-info">
+            <div id="score">Score: 0</div>
+            <div id="highScore">High Score: 0</div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="message-box" id="startMessageBox">
+            <h2>Welcome!</h2>
+            <p>Dodge the falling blocks!</p>
+            <p>Mini-Boss at 50 points!</p>
+            <p>Real Boss at 100 points!</p>
+            <button id="startButton">Start Game</button>
+            <div class="controls-info">
+                Use LEFT/RIGHT arrow keys or swipe on screen to move.
+            </div>
+        </div>
+
+        <div class="message-box" id="gameOverMessageBox">
+            <h2>Game Over!</h2>
+            <p id="finalScore"></p>
+            <button id="restartButton">Play Again</button>
+            <div class="controls-info">
+                Use LEFT/RIGHT arrow keys or swipe on screen to move.
+            </div>
+        </div>
+
+        <div class="message-box" id="bossMessageBox">
+            <h2 id="bossMessageTitle"></h2>
+            <p id="bossMessageText"></p>
+            <button id="bossActionButton">Continue</button>
+        </div>
+    </div>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Get UI elements
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('highScore');
+        const startMessageBox = document.getElementById('startMessageBox');
+        const gameOverMessageBox = document.getElementById('gameOverMessageBox');
+        const bossMessageBox = document.getElementById('bossMessageBox');
+        const bossMessageTitle = document.getElementById('bossMessageTitle');
+        const bossMessageText = document.getElementById('bossMessageText');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const bossActionButton = document.getElementById('bossActionButton');
+        const finalScoreDisplay = document.getElementById('finalScore');
+
+        // Game variables
+        let gameRunning = false;
+        let score = 0;
+        let highScore = localStorage.getItem('dodgeBlocksHighScore') || 0;
+        let player;
+        let blocks = [];
+        let blockGenerationInterval;
+        let gameLoopId;
+        let currentBoss = null;
+        let isBossFight = false;
+        let isGamePaused = false;
+        let bossSurvivalTimer = 0;
+
+        // New flags to track if a boss has been fought in the current game session
+        let miniBossFoughtThisGame = false;
+        let realBossFoughtThisGame = false;
+
+        // Game settings
+        const PLAYER_WIDTH_RATIO = 0.08;
+        const PLAYER_HEIGHT_RATIO = 0.08;
+        const PLAYER_SPEED_RATIO = 0.008;
+        const BLOCK_SIZE_RATIO = 0.05;
+        const INITIAL_BLOCK_SPEED_RATIO = 0.005;
+        const BLOCK_SPEED_INCREASE = 0.00001;
+        const BLOCK_SPAWN_RATE_MS = 900;
+        const MIN_BLOCK_SPAWN_RATE_MS = 200;
+        const SPAWN_RATE_DECREASE_MS = 15;
+
+        // Boss settings - Made harder
+        const BOSS_MINI_SCORE_THRESHOLD = 50;
+        const BOSS_REAL_SCORE_THRESHOLD = 100;
+        const MINI_BOSS_SURVIVAL_DURATION_FRAMES = 180;
+        const REAL_BOSS_SURVIVAL_DURATION_FRAMES = 360;
+        const MINI_BOSS_BONUS_SCORE = 20;
+        const REAL_BOSS_BONUS_SCORE = 50;
+
+        let currentBlockSpeed = 0;
+        let currentSpawnRate = 0;
+
+        // Input handling
+        let rightPressed = false;
+        let leftPressed = false;
+
+        // Touch input variables
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const SWIPE_THRESHOLD = 30;
+
+        // Player object
+        class Player {
+            constructor() {
+                this.width = canvas.width * PLAYER_WIDTH_RATIO;
+                this.height = canvas.height * PLAYER_HEIGHT_RATIO;
+                this.x = (canvas.width - this.width) / 2;
+                this.y = canvas.height - this.height - 20;
+                this.speed = canvas.width * PLAYER_SPEED_RATIO;
+                this.color = '#00FFFF';
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                // Add a simple character design (e.g., eyes)
+                ctx.fillStyle = '#000000';
+                const eyeWidth = this.width * 0.2;
+                const eyeHeight = this.height * 0.2;
+                ctx.fillRect(this.x + this.width * 0.2, this.y + this.height * 0.3, eyeWidth, eyeHeight);
+                ctx.fillRect(this.x + this.width * 0.6, this.y + this.height * 0.3, eyeWidth, eyeHeight);
+            }
+
+            update() {
+                if (rightPressed && this.x < canvas.width - this.width) {
+                    this.x += this.speed;
+                } else if (leftPressed && this.x > 0) {
+                    this.x -= this.speed;
+                }
+            }
+
+            // Update player dimensions based on canvas resize
+            resize() {
+                this.width = canvas.width * PLAYER_WIDTH_RATIO;
+                this.height = canvas.height * PLAYER_HEIGHT_RATIO;
+                this.speed = canvas.width * PLAYER_SPEED_RATIO;
+                // Ensure player stays within bounds after resize
+                if (this.x + this.width > canvas.width) {
+                    this.x = canvas.width - this.width;
+                }
+                if (this.x < 0) {
+                    this.x = 0;
+                }
+                this.y = canvas.height - this.height - 20;
+            }
+        }
+
+        // Block object
+        class Block {
+            constructor() {
+                this.size = canvas.width * BLOCK_SIZE_RATIO;
+                this.x = Math.random() * (canvas.width - this.size);
+                this.y = -this.size;
+                this.speed = currentBlockSpeed;
+                this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+            }
+
+            update() {
+                this.y += this.speed;
+            }
+
+            // Update block dimensions based on canvas resize
+            resize() {
+                const oldSize = this.size;
+                this.size = canvas.width * BLOCK_SIZE_RATIO;
+                // Adjust y position to maintain relative position
+                this.y = (this.y / oldSize) * this.size;
+                this.x = (this.x / oldSize) * this.size;
+            }
+        }
+
+        // Boss base class
+        class Boss extends Block {
+            constructor(sizeRatio, speedRatio, color, survivalDurationFrames) {
+                super();
+                this.size = canvas.width * sizeRatio;
+                this.x = (canvas.width - this.size) / 2;
+                this.y = -this.size;
+                this.speed = canvas.height * speedRatio;
+                this.color = color;
+                this.maxSurvivalTimer = survivalDurationFrames;
+                this.currentSurvivalTimer = survivalDurationFrames;
+                this.isDefeated = false;
+            }
+
+            draw() {
+                super.draw();
+                // Draw health bar for the boss
+                const healthBarWidth = this.size * 0.8;
+                const healthBarHeight = 10;
+                const healthRemaining = (this.currentSurvivalTimer / this.maxSurvivalTimer);
+                const currentHealthWidth = healthBarWidth * healthRemaining;
+
+                ctx.fillStyle = '#555';
+                ctx.fillRect(this.x + (this.size - healthBarWidth) / 2, this.y - healthBarHeight - 5, healthBarWidth, healthBarHeight);
+
+                ctx.fillStyle = healthRemaining > 0.5 ? '#0F0' : (healthRemaining > 0.2 ? '#FF0' : '#F00');
+                ctx.fillRect(this.x + (this.size - healthBarWidth) / 2, this.y - healthBarHeight - 5, currentHealthWidth, healthBarHeight);
+
+                ctx.strokeStyle = '#FFF';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x + (this.size - healthBarWidth) / 2, this.y - healthBarHeight - 5, healthBarWidth, healthBarHeight);
+            }
+
+            update() {
+                super.update();
+                this.currentSurvivalTimer--;
+
+                if (this.currentSurvivalTimer <= 0) {
+                    this.isDefeated = true;
+                }
+
+                // Simple horizontal movement for the boss
+                if (this.x + this.size > canvas.width || this.x < 0) {
+                    this.speedX *= -1;
+                }
+                this.x += this.speedX || 0;
+            }
+
+            resize() {
+                const oldSize = this.size;
+                this.size = canvas.width * this.sizeRatio;
+                this.x = (this.x / oldSize) * this.size;
+                this.y = (this.y / oldSize) * this.size;
+                this.speed = canvas.height * this.speedRatio;
+            }
+        }
+
+        class MiniBoss extends Boss {
+            constructor() {
+                const sizeRatio = 0.15;
+                const speedRatio = 0.008;
+                const color = '#FF4500';
+                super(sizeRatio, speedRatio, color, MINI_BOSS_SURVIVAL_DURATION_FRAMES);
+                this.sizeRatio = sizeRatio;
+                this.speedRatio = speedRatio;
+                this.speedX = canvas.width * 0.005;
+            }
+        }
+
+        class RealBoss extends Boss {
+            constructor() {
+                const sizeRatio = 0.25;
+                const speedRatio = 0.01;
+                const color = '#8A2BE2';
+                super(sizeRatio, speedRatio, color, REAL_BOSS_SURVIVAL_DURATION_FRAMES);
+                this.sizeRatio = sizeRatio;
+                this.speedRatio = speedRatio;
+                this.speedX = canvas.width * 0.007;
+            }
+        }
+
+
+        // Initialize game elements and update display
+        function initializeGame() {
+            setCanvasSize();
+            player = new Player();
+            blocks = [];
+            score = 0;
+            currentBoss = null;
+            isBossFight = false;
+            isGamePaused = false;
+            miniBossFoughtThisGame = false; // Reset for new game
+            realBossFoughtThisGame = false; // Reset for new game
+            currentBlockSpeed = canvas.height * INITIAL_BLOCK_SPEED_RATIO;
+            currentSpawnRate = BLOCK_SPAWN_RATE_MS;
+            updateScoreDisplay();
+            updateHighScoreDisplay(); // Call the renamed function
+            hideMessage(gameOverMessageBox);
+            hideMessage(startMessageBox);
+            hideMessage(bossMessageBox);
+        }
+
+        // Set canvas size dynamically
+        function setCanvasSize() {
+            const container = document.querySelector('.game-container');
+            const maxCanvasWidth = Math.min(800, container.clientWidth - 40);
+            const maxCanvasHeight = Math.min(1000, container.clientHeight - 180);
+
+            canvas.width = maxCanvasWidth;
+            canvas.height = maxCanvasHeight;
+
+            if (player) {
+                player.resize();
+            }
+            blocks.forEach(block => block.resize());
+            if (currentBoss) {
+                currentBoss.resize();
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw and update player
+            player.update();
+            player.draw();
+
+            if (isGamePaused) {
+                // Game is paused for warning, do nothing else
+            } else if (isBossFight) {
+                // Boss fight logic
+                currentBoss.update();
+                currentBoss.draw();
+
+                // Collision detection with boss
+                if (
+                    currentBoss.x < player.x + player.width &&
+                    currentBoss.x + currentBoss.size > player.x &&
+                    currentBoss.y < player.y + player.height &&
+                    currentBoss.y + currentBoss.size > player.y
+                ) {
+                    gameOver();
+                    return;
+                }
+
+                if (currentBoss.isDefeated) {
+                    // Boss defeated!
+                    isBossFight = false;
+                    let bonus = 0;
+                    if (currentBoss instanceof MiniBoss) {
+                        bonus = MINI_BOSS_BONUS_SCORE;
+                        bossMessageTitle.textContent = "Mini-Boss Vanquished!";
+                        bossMessageText.textContent = `You survived the Mini-Boss! +${bonus} points!`;
+                        miniBossFoughtThisGame = true; // Mark mini-boss as fought for this game session
+                    } else if (currentBoss instanceof RealBoss) {
+                        bonus = REAL_BOSS_BONUS_SCORE;
+                        bossMessageTitle.textContent = "Real Boss Defeated!";
+                        bossMessageText.textContent = `You conquered the Real Boss! +${bonus} points!`;
+                        realBossFoughtThisGame = true; // Mark real boss as fought for this game session
+                    }
+                    score += bonus;
+                    updateScoreDisplay();
+                    currentBoss = null;
+                    showBossMessage("defeated");
+                    clearInterval(blockGenerationInterval);
+                    startBlockGeneration(); // Resume regular block generation
+                }
+            } else {
+                // Regular game logic
+                // Check for boss thresholds using in-game flags
+                if (score >= BOSS_REAL_SCORE_THRESHOLD && !realBossFoughtThisGame) {
+                    pauseGameForBossWarning(new RealBoss(), "Real Boss Incoming!");
+                } else if (score >= BOSS_MINI_SCORE_THRESHOLD && !miniBossFoughtThisGame) {
+                    pauseGameForBossWarning(new MiniBoss(), "Mini-Boss Incoming!");
+                }
+
+                // Draw and update blocks
+                for (let i = blocks.length - 1; i >= 0; i--) {
+                    const block = blocks[i];
+                    block.update();
+                    block.draw();
+
+                    // Remove blocks that are off-screen
+                    if (block.y > canvas.height) {
+                        blocks.splice(i, 1);
+                        score++;
+                        updateScoreDisplay();
+                    }
+
+                    // Collision detection
+                    if (
+                        block.x < player.x + player.width &&
+                        block.x + block.size > player.x &&
+                        block.y < player.y + player.height &&
+                        block.y + block.size > player.y
+                    ) {
+                        gameOver();
+                        return;
+                    }
+                }
+
+                // Increase block speed gradually
+                currentBlockSpeed += BLOCK_SPEED_INCREASE;
+            }
+
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        // Function to pause game and show boss warning
+        function pauseGameForBossWarning(boss, message) {
+            isGamePaused = true;
+            currentBoss = boss;
+            blocks = [];
+            clearInterval(blockGenerationInterval);
+
+            bossMessageTitle.textContent = message;
+            bossMessageText.textContent = "Prepare for battle!";
+            bossActionButton.textContent = "Prepare!";
+            bossActionButton.onclick = () => {
+                hideMessage(bossMessageBox);
+                isGamePaused = false;
+                startBossFight(currentBoss);
+            };
+            showMessage(bossMessageBox);
+        }
+
+        // Function to start a boss fight
+        function startBossFight(boss) {
+            isBossFight = true;
+            currentBoss = boss;
+            blocks = [];
+            clearInterval(blockGenerationInterval);
+            bossSurvivalTimer = currentBoss.maxSurvivalTimer;
+            hideMessage(startMessageBox);
+            hideMessage(gameOverMessageBox);
+            hideMessage(bossMessageBox);
+        }
+
+        // Start block generation
+        function startBlockGeneration() {
+            clearInterval(blockGenerationInterval);
+            blockGenerationInterval = setInterval(() => {
+                if (gameRunning && !isBossFight && !isGamePaused) {
+                    blocks.push(new Block());
+                    currentSpawnRate = Math.max(MIN_BLOCK_SPAWN_RATE_MS, currentSpawnRate - SPAWN_RATE_DECREASE_MS);
+                    clearInterval(blockGenerationInterval);
+                    startBlockGeneration();
+                }
+            }, currentSpawnRate);
+        }
+
+        // Game over function
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(gameLoopId);
+            clearInterval(blockGenerationInterval);
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('dodgeBlocksHighScore', highScore);
+                updateHighScoreDisplay(); // Call the renamed function
+            }
+
+            finalScoreDisplay.textContent = `Your Score: ${score}`;
+            showMessage(gameOverMessageBox);
+            // Reset boss defeated flags for the next game session
+            miniBossFoughtThisGame = false;
+            realBossFoughtThisGame = false;
+        }
+
+        // Update score display
+        function updateScoreDisplay() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+
+        // Update high score display - RENAMED THIS FUNCTION
+        function updateHighScoreDisplay() {
+            highScoreDisplay.textContent = `High Score: ${highScore}`;
+        }
+
+        // Show message box
+        function showMessage(box) {
+            box.style.display = 'block';
+        }
+
+        // Hide message box
+        function hideMessage(box) {
+            box.style.display = 'none';
+        }
+
+        // Function to show boss related messages (defeated or warning)
+        function showBossMessage(type) {
+            if (type === "defeated") {
+                bossActionButton.textContent = "Continue";
+                bossActionButton.onclick = () => {
+                    hideMessage(bossMessageBox);
+                };
+            } else if (type === "warning") {
+                // This is now handled by pauseGameForBossWarning
+            }
+            showMessage(bossMessageBox);
+        }
+
+        // Event listeners for keyboard input
+        document.addEventListener('keydown', (e) => {
+            if (isGamePaused) return;
+            if (e.key === 'ArrowRight' || e.key === 'Right') {
+                rightPressed = true;
+            } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
+                leftPressed = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (isGamePaused) return;
+            if (e.key === 'ArrowRight' || e.key === 'Right') {
+                rightPressed = false;
+            } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
+                leftPressed = false;
+            }
+        });
+
+        // Event listeners for touch input (swipe)
+        canvas.addEventListener('touchstart', (e) => {
+            if (isGamePaused) return;
+            touchStartX = e.touches[0].clientX;
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (isGamePaused) return;
+            touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+
+            if (swipeDistance > SWIPE_THRESHOLD) {
+                rightPressed = true;
+                setTimeout(() => rightPressed = false, 100);
+            } else if (swipeDistance < -SWIPE_THRESHOLD) {
+                leftPressed = true;
+                setTimeout(() => leftPressed = false, 100);
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        // Event listener for touchmove to allow continuous movement if finger is held down and dragged
+        canvas.addEventListener('touchmove', (e) => {
+            if (isGamePaused) return;
+            const currentX = e.touches[0].clientX;
+            const deltaX = currentX - touchStartX;
+
+            if (deltaX > SWIPE_THRESHOLD) {
+                rightPressed = true;
+                leftPressed = false;
+            } else if (deltaX < -SWIPE_THRESHOLD) {
+                leftPressed = true;
+                rightPressed = false;
+            } else {
+                leftPressed = false;
+                rightPressed = false;
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+
+        // Start/Restart button handlers
+        startButton.addEventListener('click', () => {
+            initializeGame();
+            gameRunning = true;
+            startBlockGeneration();
+            gameLoop();
+        });
+
+        restartButton.addEventListener('click', () => {
+            initializeGame();
+            gameRunning = true;
+            startBlockGeneration();
+            gameLoop();
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', setCanvasSize);
+
+        // Initial setup on window load
+        window.onload = function() {
+            setCanvasSize();
+            updateHighScoreDisplay(); // Call the renamed function
+            showMessage(startMessageBox);
+            // Ensure session-based boss flags are reset on initial load
+            miniBossFoughtThisGame = false;
+            realBossFoughtThisGame = false;
+        };
+
+    </script>
+</body>
+</html>
